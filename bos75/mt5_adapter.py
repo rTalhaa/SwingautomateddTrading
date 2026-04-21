@@ -13,6 +13,9 @@ from .orders import (
 )
 
 
+MT5_ORDER_CHECK_DONE = 0
+
+
 class MT5AdapterError(RuntimeError):
     """Raised when the MT5 adapter cannot complete a broker action."""
 
@@ -100,6 +103,21 @@ class MT5OrderAdapter:
             message="pending limit placement accepted by MT5",
         )
 
+    def check_pending_limit(self, command: PlacePendingLimitCommand) -> MT5ExecutionResult:
+        request = self.build_place_request(command)
+        result = self.mt5.order_check(request)
+        retcode = getattr(result, "retcode", None)
+        comment = getattr(result, "comment", "")
+        ok = retcode == MT5_ORDER_CHECK_DONE
+        return MT5ExecutionResult(
+            command_id=command.id,
+            command_type=command.command_type,
+            ok=ok,
+            retcode=retcode,
+            request=request,
+            message=comment if comment else f"order_check retcode {retcode}",
+        )
+
     def cancel_pending_order(self, command: CancelPendingOrderCommand) -> MT5ExecutionResult:
         ticket = self._find_pending_order_ticket(command)
         if ticket is None:
@@ -147,6 +165,19 @@ class MT5OrderAdapter:
             "type_time": self.mt5.ORDER_TIME_GTC,
             "type_filling": self.mt5.ORDER_FILLING_RETURN,
         }
+
+    def select_first_available_symbol(self, preferred_symbols: list[str] | None = None) -> Any:
+        symbols = preferred_symbols or ["EURUSD", "GBPUSD", "USDJPY"]
+        for symbol in symbols:
+            info = self.mt5.symbol_info(symbol)
+            if info is None:
+                continue
+            if not getattr(info, "visible", False):
+                self.mt5.symbol_select(symbol, True)
+                info = self.mt5.symbol_info(symbol)
+            if info is not None and getattr(info, "visible", False):
+                return info
+        raise MT5AdapterError(f"no available MT5 symbol found from {symbols}")
 
     def _find_pending_order_ticket(self, command: CancelPendingOrderCommand) -> int | None:
         orders = self.mt5.orders_get(symbol=command.symbol)

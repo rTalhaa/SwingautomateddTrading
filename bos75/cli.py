@@ -9,6 +9,7 @@ from typing import Any
 
 from .models import Candle, Direction, Position, StrategyState, StructureLevel, StructureState, TradeSetup
 from .mt5_adapter import MT5AdapterConfig, MT5OrderAdapter
+from .orders import PendingOrderType, PlacePendingLimitCommand
 from .replay import ReplayEngine, ReplayStep
 from .seeding import ExplicitStructureSeed
 
@@ -28,6 +29,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to terminal64.exe",
     )
 
+    smoke_parser = subparsers.add_parser(
+        "mt5-smoke",
+        help="Run a safe MT5 original-terminal smoke test with order_check only",
+    )
+    smoke_parser.add_argument(
+        "--terminal-path",
+        default=r"C:\Program Files\MetaTrader 5\terminal64.exe",
+        help="Path to terminal64.exe",
+    )
+    smoke_parser.add_argument("--symbol", default="EURUSD", help="Preferred symbol for order_check")
+
     args = parser.parse_args(argv)
     if args.command == "replay":
         payload = json.loads(args.fixture.read_text(encoding="utf-8"))
@@ -40,6 +52,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "mt5-check":
         result = check_mt5(args.terminal_path)
+        sys.stdout.write(json.dumps(result, indent=2) + "\n")
+        return 0
+    if args.command == "mt5-smoke":
+        result = smoke_mt5_order_check(args.terminal_path, args.symbol)
         sys.stdout.write(json.dumps(result, indent=2) + "\n")
         return 0
 
@@ -98,6 +114,51 @@ def check_mt5(terminal_path: str | None) -> dict[str, Any]:
             "trade_allowed": getattr(terminal_info, "trade_allowed", None),
             "account_login": getattr(account_info, "login", None) if account_info else None,
             "account_server": getattr(account_info, "server", None) if account_info else None,
+        }
+    finally:
+        adapter.shutdown()
+
+
+def smoke_mt5_order_check(terminal_path: str | None, symbol: str = "EURUSD") -> dict[str, Any]:
+    adapter = MT5OrderAdapter(MT5AdapterConfig(terminal_path=terminal_path))
+    adapter.connect()
+    try:
+        symbol_info = adapter.select_first_available_symbol([symbol, "EURUSD", "GBPUSD", "USDJPY"])
+        tick = adapter.mt5.symbol_info_tick(symbol_info.name)
+        if tick is None:
+            raise RuntimeError(f"MT5 did not return a tick for {symbol_info.name}")
+
+        point = Decimal(str(symbol_info.point))
+        entry = Decimal(str(tick.ask)) - point * Decimal("1000")
+        stop = entry - point * Decimal("300")
+        target = entry + point * Decimal("900")
+        command = PlacePendingLimitCommand(
+            id=f"cmd:check:{symbol_info.name}",
+            symbol=symbol_info.name,
+            order_type=PendingOrderType.BUY_LIMIT,
+            setup_id=f"setup-check-{symbol_info.name}",
+            entry=entry,
+            stop_loss=stop,
+            take_profit=target,
+            source_bos_id="bos-check",
+            timestamp="mt5-smoke",
+        )
+        result = adapter.check_pending_limit(command)
+        terminal_info = adapter.mt5.terminal_info()
+        account_info = adapter.mt5.account_info()
+        return {
+            "ok": result.ok,
+            "terminal_name": getattr(terminal_info, "name", None),
+            "terminal_path": getattr(terminal_info, "path", None),
+            "terminal_trade_allowed": getattr(terminal_info, "trade_allowed", None),
+            "account_login": getattr(account_info, "login", None) if account_info else None,
+            "account_server": getattr(account_info, "server", None) if account_info else None,
+            "account_trade_allowed": getattr(account_info, "trade_allowed", None) if account_info else None,
+            "account_trade_expert": getattr(account_info, "trade_expert", None) if account_info else None,
+            "symbol": symbol_info.name,
+            "order_check_retcode": result.retcode,
+            "order_check_message": result.message,
+            "request": result.request,
         }
     finally:
         adapter.shutdown()

@@ -60,6 +60,7 @@ class FakeMT5:
         self.sent_requests = []
         self.next_retcode = self.TRADE_RETCODE_PLACED
         self.next_order_ticket = 12345
+        self.next_check_retcode = 0
         self.orders = []
 
     def initialize(self, **kwargs):
@@ -79,6 +80,10 @@ class FakeMT5:
     def order_send(self, request):
         self.sent_requests.append(request)
         return SimpleNamespace(retcode=self.next_retcode, order=self.next_order_ticket)
+
+    def order_check(self, request):
+        self.sent_requests.append(request)
+        return SimpleNamespace(retcode=self.next_check_retcode, comment="Done")
 
     def orders_get(self, symbol):
         return [order for order in self.orders if order.symbol == symbol]
@@ -150,6 +155,18 @@ class MT5AdapterTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.command_type, OrderCommandType.PLACE_PENDING_LIMIT)
         self.assertEqual(result.order_ticket, 12345)
+        self.assertEqual(fake.sent_requests[0]["action"], fake.TRADE_ACTION_PENDING)
+
+    def test_check_pending_limit_uses_order_check_without_ticket(self) -> None:
+        fake = FakeMT5()
+        adapter = MT5OrderAdapter(mt5_client=fake)
+
+        result = adapter.check_pending_limit(place_command())
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.retcode, 0)
+        self.assertEqual(result.message, "Done")
+        self.assertIsNone(result.order_ticket)
         self.assertEqual(fake.sent_requests[0]["action"], fake.TRADE_ACTION_PENDING)
 
     def test_cancel_pending_order_finds_matching_magic_and_comment(self) -> None:

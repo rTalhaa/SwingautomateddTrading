@@ -59,6 +59,20 @@ python -m bos75.cli mt5-check
 
 This initializes the terminal and prints connection/account metadata, but sends no order requests.
 
+Safe original-terminal smoke test:
+
+```powershell
+python -m bos75.cli mt5-smoke --symbol EURUSD
+```
+
+This builds a far-away pending limit request and validates it through MT5 `order_check`; it still sends no order.
+
+Opt-in original-terminal integration test:
+
+```powershell
+$env:BOS75_MT5_INTEGRATION='1'; python -m unittest tests.test_mt5_original_integration -v
+```
+
 ## Open Strategy Decisions
 
 Before automatic live structure detection can be finalized, the project needs precise rules for:
