@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![MT5](https://img.shields.io/badge/MetaTrader-5-1f6feb)
-![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen)
+![CI](https://github.com/rTalhaa/SwingautomateddTrading/actions/workflows/ci.yml/badge.svg)
 ![Status](https://img.shields.io/badge/status-active%20build-informational)
 
 A structure-first trading engine for a BOS-based 75% retracement strategy, built around deterministic replay, explicit state transitions, and an optional MetaTrader 5 execution adapter.
@@ -68,7 +68,7 @@ flowchart LR
 | `bos75/live_loop.py` | Persisted dry-run live loop over MT5 closed candles |
 | `bos75/seeding.py` | Explicit ASH/ASL seeding without automatic swing invention |
 | `bos75/replay.py` | Deterministic replay coordinator for seeded closed-candle inputs |
-| `bos75/cli.py` | Replay and MT5 safety-check commands |
+| `bos75/cli.py` | Replay, MT5 market-data, dry-run, and safety-check commands |
 | `docs/IMPLEMENTATION_RESTATEMENT.md` | Required pre-coding restatement and ambiguity register |
 
 ## Quick Start
@@ -144,9 +144,16 @@ $env:BOS75_MT5_INTEGRATION='1'; python -m unittest tests.test_mt5_original_integ
 
 ## Current Validation
 
-- The default `54`-test suite passes locally, with the 2 original-terminal checks skipped unless explicitly enabled.
+- The default suite runs `54` checks locally: `52` deterministic checks pass and 2 original-terminal checks skip unless explicitly enabled.
 - The original MT5 smoke and closed-candle fetch checks pass against a connected demo terminal when explicitly enabled.
 - Live `order_send` remains gated until terminal-side trading permission is enabled.
+
+## Repository Workflow
+
+- CI runs the deterministic test suite on pushes to `main` and on pull requests.
+- Strategy behavior changes should reference the relevant spec section or GitHub issue.
+- Ambiguous trading definitions should use the strategy-decision issue template before implementation.
+- Pull requests should confirm that no fractal, zigzag, generic pivot, indicator, or optimization shortcut was introduced.
 
 ## Open Strategy Decisions
 

@@ -1,12 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "bos75-retracement"
 version = "0.1.0"
 description = "BOS 75% retracement strategy core"
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
+keywords = ["algorithmic-trading", "metatrader5", "replay-engine", "trading-strategy"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Testing",
+]
 
 [project.optional-dependencies]
 mt5 = ["MetaTrader5>=5.0.5735"]
+
+[project.urls]
+Homepage = "https://github.com/rTalhaa/SwingautomateddTrading"
+Repository = "https://github.com/rTalhaa/SwingautomateddTrading"
+Issues = "https://github.com/rTalhaa/SwingautomateddTrading/issues"
 
 [tool.setuptools]
 packages = ["bos75"]
