@@ -1,0 +1,43 @@
+name: Strategy decision
+description: Clarify an ambiguous trading definition before implementation.
+title: "Strategy decision: "
+labels:
+  - strategy
+  - needs-decision
+body:
+  - type: input
+    id: spec-section
+    attributes:
+      label: Spec section
+      description: Which STRATEGY_SPEC.md section does this affect?
+      placeholder: "Example: 7) Seeding and warmup"
+    validations:
+      required: true
+  - type: textarea
+    id: ambiguity
+    attributes:
+      label: Ambiguity
+      description: Restate the undefined or conflicting behavior without proposing code yet.
+    validations:
+      required: true
+  - type: textarea
+    id: trading-impact
+    attributes:
+      label: Trading impact
+      description: Explain how different interpretations could change BOS, entry, stop, target, invalidation, or replay results.
+    validations:
+      required: true
+  - type: textarea
+    id: candidate-rules
+    attributes:
+      label: Candidate precise rules
+      description: List 2-3 exact rules or examples that could resolve the ambiguity.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Required validation
+      description: Which deterministic tests, replay fixtures, or logs should prove the chosen rule?
+    validations:
+      required: true
