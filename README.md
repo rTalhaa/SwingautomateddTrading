@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![MT5](https://img.shields.io/badge/MetaTrader-5-1f6feb)
-![Tests](https://img.shields.io/badge/tests-46%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen)
 ![Status](https://img.shields.io/badge/status-active%20build-informational)
 
 A structure-first trading engine for a BOS-based 75% retracement strategy, built around deterministic replay, explicit state transitions, and an optional MetaTrader 5 execution adapter.
@@ -17,6 +17,7 @@ This project is intentionally conservative: it does not convert market-structure
 - Emits broker-facing pending order and cancellation commands.
 - Replays seeded candle fixtures with explainable logs.
 - Fetches closed candles from MT5 for replay-ready market data.
+- Runs a persisted dry-run live loop over new closed candles.
 - Validates MT5 requests safely through `order_check` before live order sending.
 
 ## Strategy Geometry
@@ -63,6 +64,8 @@ flowchart LR
 | `bos75/orders.py` | Broker-facing pending limit and cancel command models |
 | `bos75/mt5_adapter.py` | Optional MetaTrader5 Python adapter for order commands |
 | `bos75/mt5_market_data.py` | Closed-candle ingestion from MT5 |
+| `bos75/persistence.py` | JSON runtime state save/restore |
+| `bos75/live_loop.py` | Persisted dry-run live loop over MT5 closed candles |
 | `bos75/seeding.py` | Explicit ASH/ASL seeding without automatic swing invention |
 | `bos75/replay.py` | Deterministic replay coordinator for seeded closed-candle inputs |
 | `bos75/cli.py` | Replay and MT5 safety-check commands |
@@ -91,6 +94,25 @@ python -m bos75.cli mt5-candles --symbol EURUSD --timeframe M15 --count 20
 ```
 
 The MT5 candle command skips the currently forming bar and returns closed candles only.
+
+Run one persisted dry-run live cycle:
+
+```powershell
+python -m bos75.cli live-dry-run `
+  --symbol EURUSD `
+  --timeframe M15 `
+  --state-path state/EURUSD_M15.json `
+  --seed-ash-price 1.20000 `
+  --seed-ash-time manual-high `
+  --seed-ash-index 0 `
+  --seed-asl-price 1.10000 `
+  --seed-asl-time manual-low `
+  --seed-asl-index 0
+```
+
+The dry-run loop processes new closed candles only, persists JSON state, and emits logs/commands without sending orders.
+
+On later runs, the same command can omit seed arguments once the state file exists.
 
 ## MetaTrader 5
 
@@ -122,7 +144,7 @@ $env:BOS75_MT5_INTEGRATION='1'; python -m unittest tests.test_mt5_original_integ
 
 ## Current Validation
 
-- The default `46`-test suite passes locally, with the 2 original-terminal checks skipped unless explicitly enabled.
+- The default `54`-test suite passes locally, with the 2 original-terminal checks skipped unless explicitly enabled.
 - The original MT5 smoke and closed-candle fetch checks pass against a connected demo terminal when explicitly enabled.
 - Live `order_send` remains gated until terminal-side trading permission is enabled.
 
