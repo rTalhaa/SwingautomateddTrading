@@ -4,7 +4,7 @@ import json
 import unittest
 from pathlib import Path
 
-from bos75.cli import run_replay_payload
+from bos75.cli import main, run_replay_payload
 from bos75.models import EventType, StrategyState
 
 
@@ -53,6 +53,19 @@ class ReplayCliTests(unittest.TestCase):
         self.assertIsNone(result["position"])
         self.assertEqual(len(result["commands"]), 1)
         self.assertEqual(result["logs"][-1]["event"], EventType.TARGET_HIT.value)
+
+    def test_main_replay_writes_output_file(self) -> None:
+        import tempfile
+
+        fixture = Path(__file__).parents[1] / "examples" / "bullish_replay.json"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output = Path(tmpdir) / "result.json"
+
+            exit_code = main(["replay", str(fixture), "--output", str(output)])
+
+            self.assertEqual(exit_code, 0)
+            result = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(result["state"], StrategyState.WAITING_FOR_BULLISH_OR_BEARISH_BOS.value)
 
 
 if __name__ == "__main__":

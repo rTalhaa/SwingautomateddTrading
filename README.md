@@ -10,6 +10,7 @@ The current implementation intentionally does not invent external structure with
 - `bos75/setup_generation.py` - 75% retracement entry, stop, and target geometry
 - `bos75/execution.py` - one-symbol lifecycle state machine
 - `bos75/orders.py` - broker-facing pending limit and cancel command models
+- `bos75/mt5_adapter.py` - optional MetaTrader5 Python adapter for order commands
 - `bos75/seeding.py` - explicit ASH/ASL seeding without automatic swing invention
 - `bos75/replay.py` - deterministic replay coordinator for seeded closed-candle inputs
 - `bos75/models.py` - shared domain models and replayable log records
@@ -34,6 +35,29 @@ Replay output includes:
 - active pending setup or position
 - broker-facing order commands
 - replayable decision and state-transition logs
+
+## MT5 Adapter
+
+The MT5 Python bridge is optional:
+
+```powershell
+python -m pip install ".[mt5]"
+```
+
+The adapter executes only the broker command layer:
+
+- `place_pending_limit` becomes an MT5 pending buy/sell limit request
+- `cancel_pending_order` removes a pending order matching the BOS75 magic/comment tag
+
+It does not add market entries, trailing stops, partial exits, or risk-based position sizing.
+
+Safe terminal check:
+
+```powershell
+python -m bos75.cli mt5-check
+```
+
+This initializes the terminal and prints connection/account metadata, but sends no order requests.
 
 ## Open Strategy Decisions
 

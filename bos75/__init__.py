@@ -11,6 +11,7 @@ from .models import (
     StructureState,
     TradeSetup,
 )
+from .mt5_adapter import MT5AdapterConfig, MT5AdapterError, MT5ExecutionResult, MT5OrderAdapter
 from .orders import (
     CancelPendingOrderCommand,
     ExecutionCommand,
@@ -33,6 +34,10 @@ __all__ = [
     "ExpansionLeg",
     "ExplicitStructureSeed",
     "ExplicitStructureSeeder",
+    "MT5AdapterConfig",
+    "MT5AdapterError",
+    "MT5ExecutionResult",
+    "MT5OrderAdapter",
     "OrderCommandType",
     "PendingOrderType",
     "PlacePendingLimitCommand",

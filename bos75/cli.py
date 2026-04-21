@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import Candle, Direction, Position, StrategyState, StructureLevel, StructureState, TradeSetup
+from .mt5_adapter import MT5AdapterConfig, MT5OrderAdapter
 from .replay import ReplayEngine, ReplayStep
 from .seeding import ExplicitStructureSeed
 
@@ -20,6 +21,13 @@ def main(argv: list[str] | None = None) -> int:
     replay_parser.add_argument("fixture", type=Path)
     replay_parser.add_argument("--output", type=Path, help="Optional path to write replay result JSON")
 
+    mt5_parser = subparsers.add_parser("mt5-check", help="Verify MT5 terminal initialization")
+    mt5_parser.add_argument(
+        "--terminal-path",
+        default=r"C:\Program Files\MetaTrader 5\terminal64.exe",
+        help="Path to terminal64.exe",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "replay":
         payload = json.loads(args.fixture.read_text(encoding="utf-8"))
@@ -29,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
             args.output.write_text(output + "\n", encoding="utf-8")
         else:
             sys.stdout.write(output + "\n")
+        return 0
+    if args.command == "mt5-check":
+        result = check_mt5(args.terminal_path)
+        sys.stdout.write(json.dumps(result, indent=2) + "\n")
         return 0
 
     raise AssertionError(f"unhandled command {args.command}")
@@ -70,6 +82,25 @@ def run_replay_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "commands": replay.serialized_commands(),
         "logs": replay.serialized_logs(),
     }
+
+
+def check_mt5(terminal_path: str | None) -> dict[str, Any]:
+    adapter = MT5OrderAdapter(MT5AdapterConfig(terminal_path=terminal_path))
+    adapter.connect()
+    try:
+        terminal_info = adapter.mt5.terminal_info()
+        account_info = adapter.mt5.account_info()
+        return {
+            "ok": True,
+            "terminal_name": getattr(terminal_info, "name", None),
+            "terminal_path": getattr(terminal_info, "path", None),
+            "connected": getattr(terminal_info, "connected", None),
+            "trade_allowed": getattr(terminal_info, "trade_allowed", None),
+            "account_login": getattr(account_info, "login", None) if account_info else None,
+            "account_server": getattr(account_info, "server", None) if account_info else None,
+        }
+    finally:
+        adapter.shutdown()
 
 
 def _load_seed(symbol: str, payload: dict[str, Any]) -> ExplicitStructureSeed:
