@@ -11,6 +11,8 @@ from .models import (
     StructureState,
     TradeSetup,
 )
+from .replay import ReplayEngine, ReplaySnapshot, ReplayStep
+from .seeding import ExplicitStructureSeed, ExplicitStructureSeeder, StructureSeedResult
 from .setup_generation import SetupGenerator
 from .structure import BOSDetector
 
@@ -20,9 +22,15 @@ __all__ = [
     "Candle",
     "Direction",
     "ExpansionLeg",
+    "ExplicitStructureSeed",
+    "ExplicitStructureSeeder",
+    "ReplayEngine",
+    "ReplaySnapshot",
+    "ReplayStep",
     "SetupGenerator",
     "StrategyEngine",
     "StrategyState",
+    "StructureSeedResult",
     "StructureLevel",
     "StructureState",
     "TradeSetup",

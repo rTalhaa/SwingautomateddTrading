@@ -9,9 +9,11 @@ The current implementation intentionally does not invent external structure with
 - `bos75/structure.py` - close-confirmed BOS checks against active structural levels
 - `bos75/setup_generation.py` - 75% retracement entry, stop, and target geometry
 - `bos75/execution.py` - one-symbol lifecycle state machine
+- `bos75/seeding.py` - explicit ASH/ASL seeding without automatic swing invention
+- `bos75/replay.py` - deterministic replay coordinator for seeded closed-candle inputs
 - `bos75/models.py` - shared domain models and replayable log records
 - `docs/IMPLEMENTATION_RESTATEMENT.md` - required pre-coding restatement and ambiguity register
-- `tests/test_strategy_core.py` - deterministic tests for the implemented rules
+- `tests/` - deterministic tests for the implemented rules
 
 ## Verify
 
