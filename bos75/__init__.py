@@ -12,6 +12,7 @@ from .models import (
     TradeSetup,
 )
 from .mt5_adapter import MT5AdapterConfig, MT5AdapterError, MT5ExecutionResult, MT5OrderAdapter
+from .mt5_market_data import MT5CandleBatch, MT5MarketDataAdapter
 from .orders import (
     CancelPendingOrderCommand,
     ExecutionCommand,
@@ -36,7 +37,9 @@ __all__ = [
     "ExplicitStructureSeeder",
     "MT5AdapterConfig",
     "MT5AdapterError",
+    "MT5CandleBatch",
     "MT5ExecutionResult",
+    "MT5MarketDataAdapter",
     "MT5OrderAdapter",
     "OrderCommandType",
     "PendingOrderType",

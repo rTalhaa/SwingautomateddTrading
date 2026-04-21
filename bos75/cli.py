@@ -9,6 +9,7 @@ from typing import Any
 
 from .models import Candle, Direction, Position, StrategyState, StructureLevel, StructureState, TradeSetup
 from .mt5_adapter import MT5AdapterConfig, MT5OrderAdapter
+from .mt5_market_data import MT5MarketDataAdapter
 from .orders import PendingOrderType, PlacePendingLimitCommand
 from .replay import ReplayEngine, ReplayStep
 from .seeding import ExplicitStructureSeed
@@ -40,6 +41,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     smoke_parser.add_argument("--symbol", default="EURUSD", help="Preferred symbol for order_check")
 
+    candles_parser = subparsers.add_parser(
+        "mt5-candles",
+        help="Fetch closed candles from MT5 as JSON",
+    )
+    candles_parser.add_argument("--symbol", default="EURUSD", help="Symbol to fetch")
+    candles_parser.add_argument("--timeframe", default="M15", help="MT5 timeframe such as M1, M15, H1, H4")
+    candles_parser.add_argument("--count", type=int, default=20, help="Number of closed candles to fetch")
+    candles_parser.add_argument("--start-index", type=int, default=0, help="Index to assign to the first candle")
+    candles_parser.add_argument(
+        "--terminal-path",
+        default=r"C:\Program Files\MetaTrader 5\terminal64.exe",
+        help="Path to terminal64.exe",
+    )
+    candles_parser.add_argument("--output", type=Path, help="Optional path to write candle JSON")
+
     args = parser.parse_args(argv)
     if args.command == "replay":
         payload = json.loads(args.fixture.read_text(encoding="utf-8"))
@@ -57,6 +73,20 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "mt5-smoke":
         result = smoke_mt5_order_check(args.terminal_path, args.symbol)
         sys.stdout.write(json.dumps(result, indent=2) + "\n")
+        return 0
+    if args.command == "mt5-candles":
+        result = fetch_mt5_candles(
+            terminal_path=args.terminal_path,
+            symbol=args.symbol,
+            timeframe=args.timeframe,
+            count=args.count,
+            start_index=args.start_index,
+        )
+        output = json.dumps(result, indent=2)
+        if args.output:
+            args.output.write_text(output + "\n", encoding="utf-8")
+        else:
+            sys.stdout.write(output + "\n")
         return 0
 
     raise AssertionError(f"unhandled command {args.command}")
@@ -160,6 +190,28 @@ def smoke_mt5_order_check(terminal_path: str | None, symbol: str = "EURUSD") -> 
             "order_check_message": result.message,
             "request": result.request,
         }
+    finally:
+        adapter.shutdown()
+
+
+def fetch_mt5_candles(
+    *,
+    terminal_path: str | None,
+    symbol: str,
+    timeframe: str,
+    count: int,
+    start_index: int = 0,
+) -> dict[str, Any]:
+    adapter = MT5MarketDataAdapter(MT5AdapterConfig(terminal_path=terminal_path))
+    adapter.connect()
+    try:
+        batch = adapter.fetch_closed_candles(
+            symbol=symbol,
+            timeframe=timeframe,
+            count=count,
+            start_index=start_index,
+        )
+        return batch.to_dict()
     finally:
         adapter.shutdown()
 
