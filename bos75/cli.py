@@ -67,6 +67,7 @@ def run_replay_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "state": _serialize_value(snapshot.state),
         "pending_setup": _serialize_setup(snapshot.pending_setup),
         "position": _serialize_position(snapshot.position),
+        "commands": replay.serialized_commands(),
         "logs": replay.serialized_logs(),
     }
 

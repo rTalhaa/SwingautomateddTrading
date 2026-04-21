@@ -9,6 +9,11 @@ from .models import (
     StrategyState,
     TradeSetup,
 )
+from .orders import (
+    ExecutionCommand,
+    cancel_pending_order_from_setup,
+    place_pending_limit_from_setup,
+)
 from .setup_generation import SetupGenerator
 
 
@@ -21,6 +26,7 @@ class StrategyEngine:
         self.pending_setup: TradeSetup | None = None
         self.position: Position | None = None
         self.logs: list[LogRecord] = []
+        self.commands: list[ExecutionCommand] = []
 
     def complete_warmup(self, timestamp: object | None = None) -> None:
         self._transition(
@@ -79,6 +85,8 @@ class StrategyEngine:
 
         setup = SetupGenerator.from_bos(bos)
         self.pending_setup = setup
+        command = place_pending_limit_from_setup(setup)
+        self.commands.append(command)
         next_state = (
             StrategyState.WAITING_FOR_BULLISH_RETRACE_ENTRY
             if setup.direction == Direction.BULLISH
@@ -98,6 +106,9 @@ class StrategyEngine:
                 "take_profit": setup.take_profit,
                 "risk": setup.risk,
                 "reward": setup.reward,
+                "order_command_id": command.id,
+                "order_command_type": command.command_type.value,
+                "order_type": command.order_type.value,
             },
         )
         return setup
@@ -139,7 +150,11 @@ class StrategyEngine:
             raise ValueError("missed setup id does not match active pending setup")
 
         setup = self.pending_setup
-        self.pending_setup = None
+        self._cancel_pending(
+            timestamp=timestamp,
+            reason=f"setup_missed:{reason}",
+            replacement_bos_id=None,
+        )
         self._transition(
             event=EventType.SETUP_MISSED.value,
             timestamp=timestamp,
@@ -196,13 +211,20 @@ class StrategyEngine:
         *,
         timestamp: object,
         reason: str,
-        replacement_bos_id: str,
+        replacement_bos_id: str | None,
     ) -> None:
         if self.pending_setup is None:
             raise ValueError("cannot cancel pending setup when none exists")
 
         canceled = self.pending_setup
         self.pending_setup = None
+        command = cancel_pending_order_from_setup(
+            canceled,
+            reason=reason,
+            timestamp=timestamp,
+            replacement_bos_id=replacement_bos_id,
+        )
+        self.commands.append(command)
         self.logs.append(
             LogRecord(
                 event=EventType.PENDING_ORDER_CANCELED.value,
@@ -216,6 +238,8 @@ class StrategyEngine:
                     "direction": canceled.direction.value,
                     "reason": reason,
                     "replacement_bos_id": replacement_bos_id,
+                    "order_command_id": command.id,
+                    "order_command_type": command.command_type.value,
                 },
             )
         )

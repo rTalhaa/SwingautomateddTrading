@@ -37,6 +37,8 @@ class ReplayCliTests(unittest.TestCase):
         self.assertEqual(result["state"], StrategyState.WAITING_FOR_BULLISH_RETRACE_ENTRY.value)
         self.assertEqual(result["pending_setup"]["entry"], "91.00")
         self.assertIsNone(result["position"])
+        self.assertEqual(result["commands"][0]["command_type"], "place_pending_limit")
+        self.assertEqual(result["commands"][0]["order_type"], "buy_limit")
         self.assertIn(
             EventType.PENDING_ORDER_PLACED.value,
             [log["event"] for log in result["logs"]],
@@ -49,6 +51,7 @@ class ReplayCliTests(unittest.TestCase):
         self.assertEqual(result["state"], StrategyState.WAITING_FOR_BULLISH_OR_BEARISH_BOS.value)
         self.assertIsNone(result["pending_setup"])
         self.assertIsNone(result["position"])
+        self.assertEqual(len(result["commands"]), 1)
         self.assertEqual(result["logs"][-1]["event"], EventType.TARGET_HIT.value)
 
 

@@ -12,6 +12,7 @@ from .models import (
     StructureState,
     TradeSetup,
 )
+from .orders import ExecutionCommand
 from .seeding import ExplicitStructureSeed, ExplicitStructureSeeder
 from .structure import BOSDetector
 
@@ -29,6 +30,7 @@ class ReplaySnapshot:
     state: StrategyState
     pending_setup: TradeSetup | None
     position: Position | None
+    commands: list[ExecutionCommand]
     logs: list[LogRecord]
 
 
@@ -130,11 +132,15 @@ class ReplayEngine:
             state=self.strategy.state,
             pending_setup=self.strategy.pending_setup,
             position=self.strategy.position,
+            commands=list(self.strategy.commands),
             logs=list(self.logs),
         )
 
     def serialized_logs(self) -> list[dict]:
         return [log.to_dict() for log in self.logs]
+
+    def serialized_commands(self) -> list[dict]:
+        return [command.to_dict() for command in self.strategy.commands]
 
     def _drain_strategy_logs(self) -> None:
         new_logs = self.strategy.logs[self._strategy_log_cursor :]
