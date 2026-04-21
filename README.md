@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![MT5](https://img.shields.io/badge/MetaTrader-5-1f6feb)
-![Tests](https://img.shields.io/badge/tests-36%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-46%20passing-brightgreen)
 ![Status](https://img.shields.io/badge/status-active%20build-informational)
 
 A structure-first trading engine for a BOS-based 75% retracement strategy, built around deterministic replay, explicit state transitions, and an optional MetaTrader 5 execution adapter.
@@ -16,6 +16,7 @@ This project is intentionally conservative: it does not convert market-structure
 - Generates 75% retracement pending limit setups.
 - Emits broker-facing pending order and cancellation commands.
 - Replays seeded candle fixtures with explainable logs.
+- Fetches closed candles from MT5 for replay-ready market data.
 - Validates MT5 requests safely through `order_check` before live order sending.
 
 ## Strategy Geometry
@@ -43,6 +44,7 @@ The setup geometry preserves the intended 1:3 structure before symbol tick-size 
 ```mermaid
 flowchart LR
     A["Explicit ASH/ASL Seed"] --> B["Closed Candle Replay"]
+    M["MT5 Closed Candles"] --> B
     B --> C["BOS Detector"]
     C --> D["Setup Generator"]
     D --> E["Strategy State Machine"]
@@ -60,6 +62,7 @@ flowchart LR
 | `bos75/execution.py` | One-symbol lifecycle state machine |
 | `bos75/orders.py` | Broker-facing pending limit and cancel command models |
 | `bos75/mt5_adapter.py` | Optional MetaTrader5 Python adapter for order commands |
+| `bos75/mt5_market_data.py` | Closed-candle ingestion from MT5 |
 | `bos75/seeding.py` | Explicit ASH/ASL seeding without automatic swing invention |
 | `bos75/replay.py` | Deterministic replay coordinator for seeded closed-candle inputs |
 | `bos75/cli.py` | Replay and MT5 safety-check commands |
@@ -80,6 +83,14 @@ python -m bos75.cli replay examples/bullish_replay.json
 ```
 
 Replay output includes the current state, pending setup or position, broker commands, and replayable decision logs.
+
+Fetch closed candles from MT5:
+
+```powershell
+python -m bos75.cli mt5-candles --symbol EURUSD --timeframe M15 --count 20
+```
+
+The MT5 candle command skips the currently forming bar and returns closed candles only.
 
 ## MetaTrader 5
 
@@ -111,8 +122,8 @@ $env:BOS75_MT5_INTEGRATION='1'; python -m unittest tests.test_mt5_original_integ
 
 ## Current Validation
 
-- `36` deterministic tests pass locally.
-- The original MT5 smoke test passes against a connected demo terminal when explicitly enabled.
+- The default `46`-test suite passes locally, with the 2 original-terminal checks skipped unless explicitly enabled.
+- The original MT5 smoke and closed-candle fetch checks pass against a connected demo terminal when explicitly enabled.
 - Live `order_send` remains gated until terminal-side trading permission is enabled.
 
 ## Open Strategy Decisions
