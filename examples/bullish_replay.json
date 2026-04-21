@@ -1,0 +1,48 @@
+{
+  "symbol": "EURUSD",
+  "seed": {
+    "active_high": {
+      "price": "100",
+      "timestamp": "seed_high",
+      "index": 0
+    },
+    "active_low": {
+      "price": "90",
+      "timestamp": "seed_low",
+      "index": 0
+    }
+  },
+  "events": [
+    {
+      "type": "candle",
+      "candle": {
+        "timestamp": "t1",
+        "index": 1,
+        "open": "95",
+        "high": "96",
+        "low": "92",
+        "close": "95"
+      }
+    },
+    {
+      "type": "candle",
+      "bullish_leg_start_index": 1,
+      "candle": {
+        "timestamp": "t2",
+        "index": 2,
+        "open": "98",
+        "high": "102",
+        "low": "88",
+        "close": "101"
+      }
+    },
+    {
+      "type": "entry_filled",
+      "timestamp": "fill"
+    },
+    {
+      "type": "target_hit",
+      "timestamp": "target"
+    }
+  ]
+}

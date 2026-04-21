@@ -29,6 +29,8 @@ class StrategyState(str, Enum):
 
 class EventType(str, Enum):
     NO_BOS = "no_bos"
+    STRUCTURE_SEEDED = "structure_seeded"
+    STRUCTURE_UPDATED = "structure_updated"
     VALID_BULLISH_BOS = "valid_bullish_bos"
     VALID_BEARISH_BOS = "valid_bearish_bos"
     PENDING_ORDER_PLACED = "pending_order_placed"
@@ -165,3 +167,28 @@ class LogRecord:
     state_before: StrategyState | None = None
     state_after: StrategyState | None = None
     data: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "event": self.event,
+            "symbol": self.symbol,
+            "timestamp": _serialize_log_value(self.timestamp),
+            "message": self.message,
+            "state_before": _serialize_log_value(self.state_before),
+            "state_after": _serialize_log_value(self.state_after),
+            "data": _serialize_log_value(self.data),
+        }
+
+
+def _serialize_log_value(value: Any) -> Any:
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {key: _serialize_log_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_serialize_log_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_serialize_log_value(item) for item in value]
+    return value
