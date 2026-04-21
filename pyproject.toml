@@ -1,0 +1,9 @@
+[project]
+name = "bos75-retracement"
+version = "0.1.0"
+description = "BOS 75% retracement strategy core"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools]
+packages = ["bos75"]
