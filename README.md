@@ -21,6 +21,12 @@ The current implementation intentionally does not invent external structure with
 python -m unittest discover -s tests -v
 ```
 
+## Replay Fixture
+
+```powershell
+python -m bos75.cli replay examples/bullish_replay.json
+```
+
 ## Open Strategy Decisions
 
 Before automatic live structure detection can be finalized, the project needs precise rules for:
