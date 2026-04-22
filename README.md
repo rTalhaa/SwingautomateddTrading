@@ -18,7 +18,7 @@ This project is intentionally conservative: it does not convert market-structure
 - Replays seeded candle fixtures with explainable logs.
 - Fetches closed candles from MT5 for replay-ready market data.
 - Runs a persisted dry-run live loop over new closed candles.
-- Validates MT5 requests safely through `order_check` before live order sending.
+- Validates emitted pending-limit requests safely through MT5 `order_check` before live order sending.
 
 ## Strategy Geometry
 
@@ -114,6 +114,8 @@ The dry-run loop processes new closed candles only, persists JSON state, and emi
 
 On later runs, the same command can omit seed arguments once the state file exists.
 
+Add `--check-orders` to validate any newly emitted pending-limit command through MT5 `order_check` while still avoiding `order_send`.
+
 ## MetaTrader 5
 
 Install the optional MT5 bridge:
@@ -144,7 +146,7 @@ $env:BOS75_MT5_INTEGRATION='1'; python -m unittest tests.test_mt5_original_integ
 
 ## Current Validation
 
-- The default suite runs `54` checks locally: `52` deterministic checks pass and 2 original-terminal checks skip unless explicitly enabled.
+- The default suite runs `56` checks locally: `54` deterministic checks pass and 2 original-terminal checks skip unless explicitly enabled.
 - The original MT5 smoke and closed-candle fetch checks pass against a connected demo terminal when explicitly enabled.
 - Live `order_send` remains gated until terminal-side trading permission is enabled.
 

@@ -12,6 +12,7 @@ from bos75 import (
     DryRunLiveLoop,
     ExplicitStructureSeed,
     JsonStateStore,
+    MT5ExecutionResult,
     OrderCommandType,
     StrategyState,
 )
@@ -39,6 +40,30 @@ class FakeMarketData:
         if len(self.fetch_calls) <= len(self.batches):
             return self.batches[len(self.fetch_calls) - 1]
         return self.batches[-1]
+
+
+class FakeOrderAdapter:
+    def __init__(self) -> None:
+        self.connect_count = 0
+        self.shutdown_count = 0
+        self.checked_commands = []
+
+    def connect(self) -> None:
+        self.connect_count += 1
+
+    def shutdown(self) -> None:
+        self.shutdown_count += 1
+
+    def check_pending_limit(self, command):
+        self.checked_commands.append(command)
+        return MT5ExecutionResult(
+            command_id=command.id,
+            command_type=command.command_type,
+            ok=True,
+            retcode=0,
+            request={"symbol": command.symbol, "price": float(command.entry)},
+            message="Done",
+        )
 
 
 def seed() -> ExplicitStructureSeed:
@@ -179,6 +204,88 @@ class DryRunLiveLoopTests(unittest.TestCase):
             self.assertEqual(loaded.pending_setup.entry, Decimal("1.1175000"))
             self.assertEqual(loaded.strategy_state, StrategyState.WAITING_FOR_BULLISH_RETRACE_ENTRY)
             self.assertEqual(loaded.last_processed_candle_timestamp, "t1")
+            self.assertEqual(result.order_checks, [])
+
+    def test_check_orders_validates_new_pending_limit_commands_without_sending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            market = FakeMarketData(
+                [
+                    batch(
+                        candle("t0", "1.12000", "1.15000", "1.09000", "1.14000"),
+                        candle("t1", "1.19000", "1.21000", "1.18000", "1.20500"),
+                    )
+                ]
+            )
+            order_adapter = FakeOrderAdapter()
+            loop = DryRunLiveLoop(
+                DryRunLiveConfig(
+                    symbol=SYMBOL,
+                    timeframe="M15",
+                    state_path=Path(tmpdir) / "state.json",
+                    lookback=2,
+                    seed=seed(),
+                    bullish_leg_start_index=0,
+                    check_orders=True,
+                ),
+                market_data=market,
+                order_adapter=order_adapter,
+            )
+
+            result = loop.run_once()
+            serialized = result.to_dict()
+
+            self.assertEqual(len(result.new_commands), 1)
+            self.assertEqual(len(order_adapter.checked_commands), 1)
+            self.assertEqual(order_adapter.checked_commands[0].id, result.new_commands[0].id)
+            self.assertEqual(order_adapter.connect_count, 1)
+            self.assertEqual(order_adapter.shutdown_count, 1)
+            self.assertEqual(serialized["order_checks"][0]["checked"], True)
+            self.assertEqual(serialized["order_checks"][0]["ok"], True)
+            self.assertEqual(serialized["order_checks"][0]["retcode"], 0)
+            self.assertEqual(serialized["order_checks"][0]["message"], "Done")
+
+    def test_check_orders_reports_cancel_commands_as_skipped_without_sending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            market = FakeMarketData(
+                [
+                    batch(
+                        candle("t0", "1.12000", "1.15000", "1.09000", "1.14000"),
+                        candle("t1", "1.19000", "1.21000", "1.18000", "1.20500"),
+                        candle("t2", "1.20500", "1.21500", "1.08000", "1.09500"),
+                    )
+                ]
+            )
+            order_adapter = FakeOrderAdapter()
+            loop = DryRunLiveLoop(
+                DryRunLiveConfig(
+                    symbol=SYMBOL,
+                    timeframe="M15",
+                    state_path=Path(tmpdir) / "state.json",
+                    lookback=3,
+                    seed=seed(),
+                    bullish_leg_start_index=0,
+                    bearish_leg_start_index=0,
+                    check_orders=True,
+                ),
+                market_data=market,
+                order_adapter=order_adapter,
+            )
+
+            result = loop.run_once()
+            serialized_checks = result.to_dict()["order_checks"]
+
+            self.assertEqual(
+                [command.command_type for command in result.new_commands],
+                [
+                    OrderCommandType.PLACE_PENDING_LIMIT,
+                    OrderCommandType.CANCEL_PENDING_ORDER,
+                    OrderCommandType.PLACE_PENDING_LIMIT,
+                ],
+            )
+            self.assertEqual(len(order_adapter.checked_commands), 2)
+            self.assertEqual([check["checked"] for check in serialized_checks], [True, False, True])
+            self.assertIsNone(serialized_checks[1]["ok"])
+            self.assertIn("cancellation was not sent", serialized_checks[1]["message"])
 
 
 if __name__ == "__main__":
