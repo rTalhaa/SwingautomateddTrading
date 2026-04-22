@@ -78,6 +78,11 @@ def main(argv: list[str] | None = None) -> int:
     live_parser.add_argument("--seed-asl-index", type=int, help="Initial active structural low candle index")
     live_parser.add_argument("--bullish-leg-start-index", type=int)
     live_parser.add_argument("--bearish-leg-start-index", type=int)
+    live_parser.add_argument(
+        "--check-orders",
+        action="store_true",
+        help="Validate new pending-limit commands through MT5 order_check without sending orders",
+    )
     live_parser.add_argument("--output", type=Path, help="Optional path to write dry-run result JSON")
 
     args = parser.parse_args(argv)
@@ -122,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=_seed_from_live_args(args),
             bullish_leg_start_index=args.bullish_leg_start_index,
             bearish_leg_start_index=args.bearish_leg_start_index,
+            check_orders=args.check_orders,
         )
         output = json.dumps(result, indent=2)
         if args.output:
@@ -267,6 +273,7 @@ def run_live_dry_run(
     seed: ExplicitStructureSeed | None = None,
     bullish_leg_start_index: int | None = None,
     bearish_leg_start_index: int | None = None,
+    check_orders: bool = False,
 ) -> dict[str, Any]:
     loop = DryRunLiveLoop(
         DryRunLiveConfig(
@@ -278,6 +285,7 @@ def run_live_dry_run(
             seed=seed,
             bullish_leg_start_index=bullish_leg_start_index,
             bearish_leg_start_index=bearish_leg_start_index,
+            check_orders=check_orders,
         )
     )
     return loop.run_once().to_dict()

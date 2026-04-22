@@ -1,7 +1,12 @@
 """BOS 75% retracement strategy core."""
 
 from .execution import StrategyEngine
-from .live_loop import DryRunLiveConfig, DryRunLiveLoop, DryRunLiveResult
+from .live_loop import (
+    DryRunLiveConfig,
+    DryRunLiveLoop,
+    DryRunLiveResult,
+    DryRunOrderCheckResult,
+)
 from .models import (
     BOSEvent,
     Candle,
@@ -36,6 +41,7 @@ __all__ = [
     "DryRunLiveConfig",
     "DryRunLiveLoop",
     "DryRunLiveResult",
+    "DryRunOrderCheckResult",
     "ExecutionCommand",
     "ExpansionLeg",
     "ExplicitStructureSeed",

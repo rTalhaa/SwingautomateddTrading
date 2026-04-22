@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from .models import Candle, LogRecord
-from .mt5_adapter import MT5AdapterConfig
+from .mt5_adapter import MT5AdapterConfig, MT5ExecutionResult, MT5OrderAdapter
 from .mt5_market_data import MT5MarketDataAdapter
-from .orders import ExecutionCommand
+from .orders import ExecutionCommand, OrderCommandType, PlacePendingLimitCommand
 from .persistence import (
     JsonStateStore,
     RuntimeState,
@@ -28,6 +28,51 @@ class DryRunLiveConfig:
     seed: ExplicitStructureSeed | None = None
     bullish_leg_start_index: int | None = None
     bearish_leg_start_index: int | None = None
+    check_orders: bool = False
+
+
+@dataclass(frozen=True)
+class DryRunOrderCheckResult:
+    command_id: str
+    command_type: OrderCommandType
+    checked: bool
+    ok: bool | None
+    retcode: int | None = None
+    message: str = ""
+    request: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_mt5_result(cls, result: MT5ExecutionResult) -> DryRunOrderCheckResult:
+        return cls(
+            command_id=result.command_id,
+            command_type=result.command_type,
+            checked=True,
+            ok=result.ok,
+            retcode=result.retcode,
+            message=result.message,
+            request=result.request,
+        )
+
+    @classmethod
+    def skipped(cls, command: ExecutionCommand, message: str) -> DryRunOrderCheckResult:
+        return cls(
+            command_id=command.id,
+            command_type=command.command_type,
+            checked=False,
+            ok=None,
+            message=message,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "command_id": self.command_id,
+            "command_type": self.command_type.value,
+            "checked": self.checked,
+            "ok": self.ok,
+            "retcode": self.retcode,
+            "message": self.message,
+            "request": self.request,
+        }
 
 
 @dataclass(frozen=True)
@@ -41,6 +86,7 @@ class DryRunLiveResult:
     last_processed_candle_timestamp: str | None
     next_candle_index: int
     new_commands: list[ExecutionCommand]
+    order_checks: list[DryRunOrderCheckResult]
     new_logs: list[LogRecord]
     state: RuntimeState
 
@@ -58,6 +104,7 @@ class DryRunLiveResult:
             "pending_setup": trade_setup_to_dict(self.state.pending_setup),
             "position_open": self.state.position is not None,
             "new_commands": [command.to_dict() for command in self.new_commands],
+            "order_checks": [result.to_dict() for result in self.order_checks],
             "new_logs": [log.to_dict() for log in self.new_logs],
         }
 
@@ -69,12 +116,14 @@ class DryRunLiveLoop:
         *,
         state_store: JsonStateStore | None = None,
         market_data: MT5MarketDataAdapter | None = None,
+        order_adapter: MT5OrderAdapter | None = None,
     ) -> None:
         self.config = config
         self.state_store = state_store or JsonStateStore(config.state_path)
         self.market_data = market_data or MT5MarketDataAdapter(
             MT5AdapterConfig(terminal_path=config.terminal_path)
         )
+        self.order_adapter = order_adapter
 
     def run_once(self) -> DryRunLiveResult:
         state = self._load_or_initialize_state()
@@ -121,6 +170,8 @@ class DryRunLiveLoop:
             next_candle_index=next_index,
         )
         self.state_store.save(updated_state)
+        new_commands = replay.strategy.commands[previous_command_count:]
+        order_checks = self._check_new_commands(new_commands) if self.config.check_orders else []
 
         return DryRunLiveResult(
             symbol=self.config.symbol,
@@ -131,10 +182,48 @@ class DryRunLiveLoop:
             skipped_count=len(batch.candles) - len(new_candles),
             last_processed_candle_timestamp=last_processed,
             next_candle_index=next_index,
-            new_commands=replay.strategy.commands[previous_command_count:],
+            new_commands=new_commands,
+            order_checks=order_checks,
             new_logs=replay.logs[previous_log_count:],
             state=updated_state,
         )
+
+    def _check_new_commands(self, commands: list[ExecutionCommand]) -> list[DryRunOrderCheckResult]:
+        if not commands:
+            return []
+
+        if not any(isinstance(command, PlacePendingLimitCommand) for command in commands):
+            return [
+                DryRunOrderCheckResult.skipped(
+                    command,
+                    "order_check is available for pending-limit placement only; cancellation was not sent",
+                )
+                for command in commands
+            ]
+
+        adapter = self.order_adapter or MT5OrderAdapter(
+            MT5AdapterConfig(terminal_path=self.config.terminal_path)
+        )
+        adapter.connect()
+        try:
+            results: list[DryRunOrderCheckResult] = []
+            for command in commands:
+                if isinstance(command, PlacePendingLimitCommand):
+                    results.append(
+                        DryRunOrderCheckResult.from_mt5_result(
+                            adapter.check_pending_limit(command)
+                        )
+                    )
+                    continue
+                results.append(
+                    DryRunOrderCheckResult.skipped(
+                        command,
+                        "order_check is available for pending-limit placement only; cancellation was not sent",
+                    )
+                )
+            return results
+        finally:
+            adapter.shutdown()
 
     def _load_or_initialize_state(self) -> RuntimeState:
         existing = self.state_store.load()
